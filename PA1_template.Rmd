@@ -1,0 +1,101 @@
+---
+title: "PA1_template"
+author: "Benhur"
+date: "December 14, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document which will generate both content as well as the output of any embedded R code chunks within the document. The following code will download the activity document and execute the histogram which shows the total number of steps taken per day.
+
+```{r Histogram,fig.height=4}
+activity<-read.csv("activity.csv", header = TRUE, sep=",")
+activity$date <- as.Date(activity$date)
+
+library(plyr)
+sb <- ddply(activity,"date",summarize,steps=sum(steps))
+
+library(ggplot2)
+
+ggplot(sb,aes(x=date,y=steps))+geom_bar(stat="identity",colour="red")+ ylab("Number of steps")+ggtitle("Total number of steps per day")
+
+```
+
+The mean and median total number of steps taken per day are:
+
+```{r stimulation,echo=TRUE}
+sb_mean <- ddply(activity,"date",summarize,steps=mean(steps),interval=sum(interval))
+print(sb_mean)
+sb_median <- ddply(activity,"date",summarize,steps=median(steps),interval=sum(interval))
+print(sb_median)
+
+```
+The plot that shows the 5-interval time against the average number of steps taken:
+
+```{r plot,echo=TRUE}
+ggplot(activity,aes(x=interval,y=steps))+geom_line(stat="identity",colour="blue")+ylab("Number of steps")+ggtitle("Time interval") 
+
+```
+
+To find the 5-min interval which has the maximum number of steps:
+```{r maxmum,echo=TRUE}
+max_interval<-activity[which(activity$steps==max(activity$steps,na.rm = TRUE)), ]
+print(max_interval)
+```
+Imputing the missing data: Calculating the total number of NAs and replacing it with the mean
+
+```{r missing data,echo=TRUE}
+activity1<-activity
+number_NA<-sum(is.na(activity1$steps))
+print(number_NA)
+
+activity1$steps[which(is.na(activity1$steps))]<-mean(activity1$steps,na.rm=TRUE)
+head(activity1)
+
+```
+Ploting histogram of the data without the NAs:
+```{r ploting Histogram,echo=TRUE}
+sb1 <- ddply(activity1,"date",summarize,steps=sum(steps))
+
+ggplot(sb1,aes(x=date,y=steps))+geom_bar(stat="identity",colour="red")+ ylab("Number of steps")+ggtitle("Total number of steps per day")
+```
+
+The mean and median total number of steps taken per day after removing the NAs from the dataframe are:
+
+```{r mean and median,echo=TRUE}
+sb1_mean <- ddply(activity1,"date",summarize,steps=mean(steps),interval=sum(interval))
+print(sb1_mean)
+sb1_median <- ddply(activity1,"date",summarize,steps=median(steps),interval=sum(interval))
+print(sb1_median)
+```
+
+The mean and median values calculated from the data with NAs and without NAs shows a big difference. So imputing missing data is very important in data analysis.
+
+A new factor variable in the dataset indicating whether a given date is a weekday or weekend day:
+```{r weekdays and weekends,echo=TRUE}
+activity1$day<-weekdays(as.Date(activity1$date))
+
+weekends<-c('Saturday','Sunday')
+activity1$wDays <- factor((weekdays(activity1$date) %in% weekends), 
+         levels=c(TRUE, FALSE), labels=c('weekend', 'weekday'))
+
+activity1_wend<-activity1[activity1$wDays %in% "weekend",]
+activity1_wday<-activity1[activity1$wDays %in% "weekday",]
+```
+
+Creating a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+
+```{r panel plot,echo=TRUE}
+
+library(lattice)
+
+day.f<-factor(activity1$wDays,labels=c("Weekday","Weekend"))
+
+xyplot(activity1$steps~activity1$interval|day.f, type="l",xlab="Time Interval",ylab="Number of steps",main = "Average number of steps vs time interval",layout=c(1,2))
+```
