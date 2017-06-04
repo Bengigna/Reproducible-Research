@@ -1,0 +1,202 @@
+
+## Reproducible Research-Week 4_Peer Assignment 2
+
+Benhur Tedros, December 28,2016
+
+
+## Title : Assessing the impact of severe weather events to population health and economy using the NOAA storm data recorded between 1950 and 2011.
+
+## Synopsis
+
+Analysis on severe weather events data was done to identify the most type of weather events which cause more fatalities, injuries, property and crop damages. A storm data that was collected by NOAA from 1950 to 2011 was taken for the analysis of this assignment. Base on the results, excessive heat and Tornado had the most impact on public health while flood, drought and hurricane/typhoon were the ones which affected the property/crop the most.
+
+
+## Data Processing
+
+### 1. Loading libraries
+
+```{r downloading library, echo=TRUE}
+library(plyr)
+library(ggplot2)
+require(gridExtra)
+
+```
+### 2. Downloading and reading the file
+
+After setting up the right directory and downloading the file to it, we read the storm data 
+```{r downloading file, echo=TRUE}
+stormData<-read.csv("repdata%2Fdata%2FStormData.csv", header = TRUE, sep=",")
+
+```
+
+### 3. Formating the BGN_date into year and plotting the data to see its distribution through the years.
+
+A histogram was plotted to explore the data distrubition through the recorded years.
+
+```{r ploting histogram, echo=TRUE}
+
+if (dim(stormData)[2] == 37) {
+    stormData$year <- as.numeric(format(as.Date(stormData$BGN_DATE, format = "%m/%d/%Y %H:%M:%S"), "%Y"))
+}
+
+hist(stormData$year,breaks=35)
+
+```
+
+The data shows an increase in data events starting from 1995, and we subset the data to the events tracked down after 1995 to avoid skewness in the first years.
+
+```{r filtered data, echo=TRUE}
+
+stormSubset <- stormData[stormData$year >= 1995, ]
+dim(stormSubset)
+
+```
+
+### 4. Separation of columns required for the analysis
+
+We separate the relevant columns that include date, event type, fatalities, injuries, property and crop damages to do the analysis.
+
+```{r subsetting data, echo=TRUE}
+damage<-subset(stormSubset,select=c("BGN_DATE","EVTYPE","FATALITIES","INJURIES",
+                            "PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","year"))
+dim(damage)
+
+```
+
+## Analysing the impact severe weather events on Public health
+
+Here,we should estimate the number of fatalities and injuries which were caused by the severe weather events
+
+### 1. For Fatalities
+
+```{r aggregate fatalities, echo=TRUE}
+
+fatal<-aggregate(stormSubset$FATALITIES,by=list(stormSubset$EVTYPE),FUN=sum)
+names(fatal) <- c("EVTYPE", "FATALITIES")
+fatal <- arrange(fatal,fatal[, 2], decreasing = TRUE)
+fatalities<-fatal[1:15,]
+
+```
+
+### 2.For the injuries:
+
+```{r aggregate injuries, echo=TRUE}
+
+injury<-aggregate(stormSubset$INJURIES,by=list(stormSubset$EVTYPE),FUN=sum)
+names(injury) <- c("EVTYPE", "INJURIES")
+injury <- arrange(injury,injury[, 2], decreasing = TRUE)
+injuries<-injury[1:15,]
+
+```
+
+### 3. Comparison of the plots related to fatalities and injuries
+
+```{r ploting Histogram,echo=TRUE}
+
+
+fatal_plot<-ggplot(fatalities,aes(x=EVTYPE,y=FATALITIES))+geom_bar(stat="identity",colour="red")+ ylab("Number of Fatalities")+ xlab("Severe Weather Event")+ggtitle("Total Fatalities in 1995-2011\ncaused by Severe Weather Events\nin the USA")+ theme(axis.text.x = element_text(angle = 45,hjust = 1)) 
+
+injury_plot<-ggplot(injuries,aes(x=EVTYPE,y=INJURIES))+geom_bar(stat="identity",colour="red")+ ylab("Number of Injuries")+ xlab("Severe Weather Event")+ggtitle("Total Injuries in 1995-2011 \n caused by Severe Weather Events \n in the USA")+ theme(axis.text.x = element_text(angle = 45,hjust = 1))
+
+```
+## Impact of severe weather events on economy
+
+As the units for the property and crop damage is different, we need to convert the different unit variables [Hundred (H), Thousand (K), Million (M) and Billion (B)] used in columns PROPDMGEXP and CROPDMGEXP into the same by using a multiplier.
+
+### 1. For Property damage
+
+```{r convertion propDMGEXP, echo=TRUE}
+
+Col_len <- dim(stormSubset)[2]
+    Prop <- which(colnames(stormSubset) == "PROPDMGEXP")
+    stormSubset[, Prop] <- as.character(stormSubset[, Prop])
+    PropDMG <- !is.na(toupper(stormSubset[, Prop]))
+    stormSubset[PropDMG & toupper(stormSubset[, Prop]) == "B", Prop] <- "9"
+    stormSubset[PropDMG & toupper(stormSubset[, Prop]) == "M", Prop] <- "6"
+    stormSubset[PropDMG & toupper(stormSubset[, Prop]) == "K", Prop] <- "3"
+    stormSubset[PropDMG & toupper(stormSubset[, Prop]) == "H", Prop] <- "2"
+    stormSubset[PropDMG & toupper(stormSubset[, Prop]) == "", Prop] <- "0"
+    stormSubset[, Prop] <- as.numeric(stormSubset[, Prop])
+    stormSubset[is.na(stormSubset[, Prop]), Prop] <- 0
+    stormSubset <- cbind(stormSubset, stormSubset[, Prop - 1] * 10^stormSubset[, Prop])
+    names(stormSubset)[Col_len + 1] <- "Property_Damage"
+    names(stormSubset)
+
+ Property<-aggregate(stormSubset$Property_Damage,by=list(stormSubset$EVTYPE),FUN=sum)
+  names(Property)<-c("EVTYPE","Property_Damage")
+   Property<-arrange(Property,Property[, 2], decreasing = TRUE)
+    Property<-Property[1:15,]
+
+```
+
+### 2. For crop damage
+
+```{r convertion cropDMGEXP, echo=TRUE}
+
+Col_len <- dim(stormSubset)[2]
+    Crop <- which(colnames(stormSubset) == "CROPDMGEXP")
+    stormSubset[, Crop] <- as.character(stormSubset[, Crop])
+    CropDMG <- !is.na(toupper(stormSubset[, Crop]))
+    stormSubset[CropDMG & toupper(stormSubset[, Crop]) == "B", Crop] <- "9"
+    stormSubset[CropDMG & toupper(stormSubset[, Crop]) == "M", Crop] <- "6"
+    stormSubset[CropDMG & toupper(stormSubset[, Crop]) == "K", Crop] <- "3"
+    stormSubset[CropDMG & toupper(stormSubset[, Crop]) == "H", Crop] <- "2"
+    stormSubset[CropDMG & toupper(stormSubset[, Crop]) == "", Crop] <- "0"
+    stormSubset[, Crop] <- as.numeric(stormSubset[, Crop])
+    stormSubset[is.na(stormSubset[, Crop]), Crop] <- 0
+    stormSubset <- cbind(stormSubset, stormSubset[, Crop - 1] * 10^stormSubset[, Crop])
+    names(stormSubset)[Col_len + 1] <- "Crop_Damage"
+    names(stormSubset)
+
+ Crop<-aggregate(stormSubset$Crop_Damage,by=list(stormSubset$EVTYPE),FUN=sum)
+  names(Crop)<-c("EVTYPE","Crop_Damage")
+   Crop<-arrange(Crop,Crop[, 2], decreasing = TRUE)
+    Crop<-Crop[1:15,]
+  
+
+```
+### 3. Comparison of the plots related to Property and Crop damages
+
+```{r ploting bar,echo=TRUE}
+
+Property_plot<-ggplot(Property,aes(x=EVTYPE,y=Property_Damage))+geom_bar(stat="identity",colour="red")+ ylab("Property Damage in US dollars")+ xlab("Severe Weather Event")+ggtitle("Total property damage in \n 1995-2011 caused by Severe \n Weather Events in the USA")+ theme(axis.text.x = element_text(angle = 45,hjust = 1))
+
+
+Crop_plot<-ggplot(Crop,aes(x=EVTYPE,y=Crop_Damage))+geom_bar(stat="identity",colour="red")+ ylab("Crop Damage in US dollars")+ xlab("Severe Weather Event")+ggtitle("Total Crop Damage in 1995-2011 \n caused by Severe Weather Events in \n the USA")+ theme(axis.text.x = element_text(angle = 45,hjust = 1))
+
+```
+
+## Results
+
+### 1. The results of the severe weather event impact on public health
+
+Based on the analysis, the severe weather events caused many casualties. Here are below the fatalities and injuries sorted out as per their numbers:
+
+```{r results fatalities, echo=TRUE}
+                    
+fatalities
+
+```
+
+```{r results injuries, echo=TRUE}
+                    
+injuries
+
+grid.arrange(fatal_plot, injury_plot, ncol = 2)
+```
+
+### 2. The results of the severe weather events impact on property and crop
+
+
+```{r results propertydamge, echo=TRUE}
+                    
+Property
+
+```
+
+```{r results Cropdamage, echo=TRUE}
+                    
+Crop
+
+grid.arrange(Property_plot, Crop_plot, ncol = 2)
+```
